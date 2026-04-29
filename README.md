@@ -121,8 +121,8 @@ The architecture image below represents the deployment topology used by this pro
 1. Clone the repository (if applicable):
 
    ```bash
-   git clone <repository-url>
-   cd proyecto-final
+   git clone https://github.com/da-ros/Cloud-RAG-Infrastructure.git
+   cd Cloud-RAG-Infrastructure
    ```
 
 2. Start Docker Compose:

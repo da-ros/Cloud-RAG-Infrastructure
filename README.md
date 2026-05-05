@@ -28,7 +28,7 @@ This project demonstrates a full deployment of an AI application (RAG with LangF
 - Remote state management in S3
 - Automated and reproducible deployment
 
-This is an ideal portfolio project to showcase skills in DevOps, Cloud Engineering, and production-style AI/ML application deployment.
+Here, we'll showcase skills in DevOps, Cloud Engineering, and production-style AI/ML application deployment.
 
 ## Architecture
 

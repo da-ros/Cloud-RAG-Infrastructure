@@ -2,12 +2,15 @@
 
 This project implements a RAG (Retrieval-Augmented Generation) application using LangFlow, deployed both locally with Docker Compose and in AWS EKS using Terraform. The application includes an Nginx reverse proxy for rate limiting and traffic management.
 
+**See demo and full case study:** [pedrorodas.com/#projects](https://pedrorodas.com/#projects)
+
 ## Table of Contents
 
 - [Project Description](#project-description)
+- [Key Features](#key-features)
 - [Architecture](#architecture)
 - [Components](#components)
-- [Technologies Used](#technologies-used)
+- [Tech Stack](#tech-stack)
 - [Local Deployment](#local-deployment)
 - [AWS Deployment](#aws-deployment)
 - [Project Structure](#project-structure)
@@ -29,6 +32,16 @@ This project demonstrates a full deployment of an AI application (RAG with LangF
 - Automated and reproducible deployment
 
 Here, we'll showcase skills in DevOps, Cloud Engineering, and production-style AI/ML application deployment.
+
+## Key Features
+
+- **RAG workflows in LangFlow** — Visual pipelines with importable JSON flow definitions
+- **Dual deployment** — Same stack locally (Docker Compose) and on AWS (EKS)
+- **Infrastructure as Code** — Terraform manages the Kubernetes Deployment and LoadBalancer Service
+- **Multi-container Pod** — LangFlow, PostgreSQL, and an Nginx ambassador sidecar on EKS
+- **Edge controls** — Nginx reverse proxy with per-IP rate limiting
+- **Shared Terraform state** — S3 backend plus remote state for ECR image wiring
+- **Public access on AWS** — LoadBalancer Service exposes LangFlow over HTTP
 
 ## Architecture
 
@@ -80,7 +93,7 @@ The architecture image below represents the deployment topology used by this pro
   - Traffic management
   - Proxying to external services (Ngrok in current configuration)
 
-## Technologies Used
+## Tech Stack
 
 ### Development and Containers
 
@@ -325,19 +338,35 @@ The `nginx/nginx.conf` file includes:
 - Reverse proxy: routes traffic to external services
 - Timeout configuration: tuned for long-running requests
 
-### Terraform Remote State
+### Terraform State
 
-Terraform state is stored in S3:
+Terraform keeps a **state file** that maps your configuration to real resources (for example, which Deployment name exists in which namespace). On every `plan` and `apply`, Terraform reads that state to decide what to create, update, or destroy. Without shared state, two runs from different machines could drift or try to recreate the same resources.
 
-- Bucket: `terraform-state-ups-2025`
-- Key: `terraform.tfstate.proyecto-final-grupo2`
-- Region: `us-east-1`
+This project uses **remote state in S3** so state is centralized, durable, and safe to share across teammates and CI:
 
-The project also reads remote state from base infrastructure to retrieve:
+| State | S3 bucket | S3 key | Purpose |
+| --- | --- | --- | --- |
+| **This stack** (backend) | `terraform-state-ups-2025` | `terraform.tfstate.proyecto-final-grupo2` | Langflow deployment, Service, and namespace on EKS |
+| **Base stack** (read-only remote state) | `terraform-state-ups-2025` | `terraform.tfstate.base` | Shared platform outputs (for example ECR URL) |
 
-- ECR repository URL for the Nginx image
+Both use region `us-east-1`. The backend is configured in `infrastructure/provider.tf`.
+
+**How the two states work together**
+
+1. **Own state (`terraform.tfstate.proyecto-final-grupo2`)** — Written by `terraform init` / `apply` for this repo. It tracks only resources defined under `infrastructure/` (Kubernetes Deployment, Service, and related settings).
+2. **Remote state (`terraform.tfstate.base`)** — Read via `data.terraform_remote_state.base`. This stack does not manage the base infrastructure; it **consumes outputs** from another Terraform project. Today that is used to build the Nginx image reference: `${data.terraform_remote_state.base.outputs.proyecto_final_ecr_repository_url}:nginx-ambassador-grupo2-latest`.
+
+That split keeps **platform** concerns (ECR, cluster-wide setup) separate from **application** concerns (this Langflow workload), while still wiring them together without hardcoding URLs in code.
+
+**Practices**
+
+- Do **not** commit `.tfstate` files or the `.terraform/` directory (see `.gitignore`). State can contain sensitive attributes; the S3 backend is the source of truth after `terraform init`.
+- Run `terraform init` once per clone so Terraform configures the S3 backend and downloads providers locally.
+- Use `terraform output` (for example `kubernetes_service_endpoint`) to read values exported from this stack after apply.
 
 ## Usage
+
+See demo and full case study: [pedrorodas.com/#projects](https://pedrorodas.com/#projects)
 
 ### Access LangFlow
 
